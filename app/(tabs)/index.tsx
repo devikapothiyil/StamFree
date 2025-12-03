@@ -1,98 +1,242 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router, useNavigation } from 'expo-router';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const navigation = useNavigation();
+  const [activeTab, setActiveTab] = useState('exercises');
+  const scaleAnim = new Animated.Value(1);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const animatePress = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem('authUser');
+    } catch (e) {
+      console.warn('Failed to clear storage', e);
+    } finally {
+      router.replace('/(auth)/login');
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerTitle: 'StamFree AI',
+      headerRight: () => (
+        <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
+          <Text style={styles.headerButtonText}>Logout</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, handleLogout]);
+
+  const renderExercises = () => (
+    <View style={styles.tabContent}>
+      <Text style={styles.sectionTitle}>Let's Practice! 🎯</Text>
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+        <TouchableOpacity 
+          style={[styles.exerciseCard, styles.breathingCard]} 
+          onPress={animatePress}>
+          <MaterialCommunityIcons name="weather-windy" size={32} color="#fff" />
+          <Text style={styles.exerciseTitle}>Breathing Games</Text>
+          <Text style={styles.exerciseDescription}>Take deep breaths with our friendly dragon! 🐉</Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+      <TouchableOpacity style={[styles.exerciseCard, styles.wordCard]}>
+        <MaterialCommunityIcons name="microphone" size={32} color="#fff" />
+        <Text style={styles.exerciseTitle}>Word Fun</Text>
+        <Text style={styles.exerciseDescription}>Play with words and earn stars! ⭐</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.exerciseCard, styles.fluencyCard]}>
+        <MaterialCommunityIcons name="star-face" size={32} color="#fff" />
+        <Text style={styles.exerciseTitle}>Speech Adventure</Text>
+        <Text style={styles.exerciseDescription}>Join our magical speaking journey! 🚀</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderDailyReport = () => (
+    <View style={styles.tabContent}>
+      <Text style={styles.sectionTitle}>Your Amazing Progress! 🌟</Text>
+      <View style={[styles.reportCard, styles.progressCard]}>
+        <Text style={styles.reportTitle}>Today's Achievements</Text>
+        <View style={styles.achievementRow}>
+          <MaterialCommunityIcons name="trophy" size={24} color="#FFD700" />
+          <Text style={styles.reportMetric}>3 Games Completed!</Text>
+        </View>
+        <View style={styles.achievementRow}>
+          <MaterialCommunityIcons name="clock" size={24} color="#4CAF50" />
+          <Text style={styles.reportMetric}>25 Minutes of Fun!</Text>
+        </View>
+        <View style={styles.achievementRow}>
+          <MaterialCommunityIcons name="star" size={24} color="#FF9800" />
+          <Text style={styles.reportMetric}>Super Score: 7.5! 🎉</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'exercises' && styles.activeTab]} 
+          onPress={() => setActiveTab('exercises')}>
+          <MaterialCommunityIcons 
+            name="rocket" 
+            size={24} 
+            color={activeTab === 'exercises' ? '#FF6B6B' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'exercises' && styles.activeTabText]}>
+            Play & Learn
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'report' && styles.activeTab]} 
+          onPress={() => setActiveTab('report')}>
+          <MaterialCommunityIcons 
+            name="chart-line" 
+            size={24} 
+            color={activeTab === 'report' ? '#FF6B6B' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'report' && styles.activeTabText]}>
+            My Progress
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <ScrollView style={styles.content} bounces={true}>
+        {activeTab === 'exercises' ? renderExercises() : renderDailyReport()}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 2,
+    borderBottomColor: '#FFE0E0',
+    justifyContent: 'space-around',
+  },
+  tab: {
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  activeTab: {
+    borderBottomWidth: 3,
+    borderBottomColor: '#FF6B6B',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  tabText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: '#FF6B6B',
+  },
+  content: {
+    flex: 1,
+  },
+  tabContent: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 20,
+    color: '#2D3436',
+    textAlign: 'center',
+  },
+  exerciseCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    elevation: 4,
+    alignItems: 'center',
+  },
+  breathingCard: {
+    backgroundColor: '#FF6B6B',
+  },
+  wordCard: {
+    backgroundColor: '#4ECDC4',
+  },
+  fluencyCard: {
+    backgroundColor: '#45B7D1',
+  },
+  exerciseTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginVertical: 8,
+    color: '#fff',
+  },
+  exerciseDescription: {
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
+  },
+  reportCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    elevation: 4,
+  },
+  progressCard: {
+    backgroundColor: '#FFF9C4',
+  },
+  reportTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#2D3436',
+    textAlign: 'center',
+  },
+  achievementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 12,
+  },
+  reportMetric: {
+    fontSize: 16,
+    color: '#2D3436',
+    fontWeight: '600',
+  },
+  headerButton: { 
+    paddingHorizontal: 12, 
+    paddingVertical: 6 
+  },
+  headerButtonText: { 
+    color: '#FF6B6B', 
+    fontWeight: '600' 
   },
 });
