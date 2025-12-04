@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useNavigation } from 'expo-router';
 import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/config/firebaseConfig';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -26,9 +28,10 @@ export default function HomeScreen() {
 
   const handleLogout = useCallback(async () => {
     try {
+      await signOut(auth);
       await AsyncStorage.removeItem('authUser');
     } catch (e) {
-      console.warn('Failed to clear storage', e);
+      console.warn('Failed to clear storage or sign out', e);
     } finally {
       router.replace('/(auth)/login');
     }

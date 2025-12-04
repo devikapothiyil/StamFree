@@ -13,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/config/firebaseConfig';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -27,29 +29,26 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // Get stored user dat
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      const storedUserData = await AsyncStorage.getItem('userData');
+      // Store auth state for app compatibility (optional, but keeps existing logic working)
+      await AsyncStorage.setItem('authUser', JSON.stringify({ email: user.email, uid: user.uid }));
 
-      if (!storedUserData) {
-        Alert.alert('Login Failed', 'No account found. Please create an account first.');
-        return;
+      // Navigate to main app
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      let errorMessage = 'Something went wrong';
+      if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password';
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
       }
-
-      const userData = JSON.parse(storedUserData);
-
-      // Validate credentials
-      if (email === userData.email && password === userData.password) {
-        // Store auth state
-        await AsyncStorage.setItem('authUser', JSON.stringify({ email }));
-
-        // Navigate to main app
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Login Failed', 'Invalid email or password');
-      }
-    } catch (error) {
-      Alert.alert('Login Failed', 'Something went wrong');
+      Alert.alert('Login Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -103,7 +102,7 @@ export default function LoginScreen() {
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account? </Text>
-              <Link href="./(auth)/create-account" asChild>
+              <Link href="/(auth)/signup" asChild>
                 <TouchableOpacity disabled={loading}>
                   <Text style={styles.link}>Create Account</Text>
                 </TouchableOpacity>

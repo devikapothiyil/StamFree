@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/config/firebaseConfig';
 
 export default function CreateAccountScreen() {
   const [childName, setChildName] = useState('');
@@ -23,6 +27,7 @@ export default function CreateAccountScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const validateForm = () => {
     if (!childName || !childAge || !parentName || !parentPhone || !email || !password) {
@@ -60,30 +65,56 @@ export default function CreateAccountScreen() {
 
     setLoading(true);
     try {
-      // Create user object
-      const userData = {
-        childName,
-        childAge,
-        parentName,
-        parentPhone,
-        email,
-        password, // Note: In a real app, never store plain text passwords
-      };
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      // Store user data
-      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      // Update profile (display name)
+      await updateProfile(user, { displayName: childName });
+
+      // Store additional user data in Firestore
+      try {
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Firestore timeout')), 5000)
+          );
+
+          await Promise.race([
+            setDoc(doc(db, 'users', user.uid), {
+              childName,
+              childAge,
+              parentName,
+              parentPhone,
+              email,
+              createdAt: new Date().toISOString(),
+            }),
+            timeoutPromise
+          ]);
+      } catch (firestoreError) {
+          console.warn('Firestore save failed or timed out:', firestoreError);
+      }
+
+      // Store auth state locally (legacy/backup)
+      await AsyncStorage.setItem('authUser', JSON.stringify({ email, uid: user.uid }));
       
-      Alert.alert('Success', 'Account created successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.replace('/(auth)/login'),
-        },
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create account. Please try again.');
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      let errorMessage = 'Failed to create account. Please try again.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already in use.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak.';
+      }
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSuccessContinue = () => {
+    setShowSuccessModal(false);
+    router.replace('/(tabs)');
   };
 
   return (
@@ -197,7 +228,7 @@ export default function CreateAccountScreen() {
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
-              <Link href="./(auth)/login" asChild>
+              <Link href="/(auth)/login" asChild>
                 <TouchableOpacity disabled={loading}>
                   <Text style={styles.link}>Login</Text>
                 </TouchableOpacity>
@@ -206,6 +237,29 @@ export default function CreateAccountScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSuccessModal}
+        onRequestClose={handleSuccessContinue}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+               <Text style={styles.modalIcon}>🎉</Text>
+            </View>
+            <Text style={styles.modalTitle}>Success!</Text>
+            <Text style={styles.modalMessage}>Your account has been created successfully.</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleSuccessContinue}
+            >
+              <Text style={styles.modalButtonText}>Let's Start!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -291,5 +345,62 @@ const styles = StyleSheet.create({
     color: '#1a73e8',
     fontSize: 14,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E8F0FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalIcon: {
+    fontSize: 30,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1a73e8',
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: '#1a73e8',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    width: '100%',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
