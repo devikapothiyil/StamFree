@@ -25,15 +25,11 @@ except LookupError:
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "credentials.json"
 
 # MODEL FILES
-BINARY_MODEL_PATH = 'binary_uclass_v1.h5'      
-MULTICLASS_MODEL_PATH = 'stutter_yamnet_v5.h5' 
+BINARY_MODEL_PATH = 'binary_uclass.h5'      
+MULTICLASS_MODEL_PATH = 'multi_label_sep28k.h5' 
 
-# --- TUNING KNOBS (THE FIX) ---
-# 1. Raise Threshold: Your false positives are hitting ~0.69. 
-#    We set this to 0.75 so only strong detections pass.
 BINARY_THRESHOLD = 0.75  
 
-# 2. Gentler Trimming: 20dB was too aggressive. 30dB keeps more natural breath.
 TRIM_DB = 30 
 
 # CONSTANTS
@@ -65,8 +61,6 @@ yamnet_model = hub.load('https://tfhub.dev/google/yamnet/1')
 print("2. Loading Custom Models...")
 binary_model = load_model(BINARY_MODEL_PATH)
 multiclass_model = load_model(MULTICLASS_MODEL_PATH)
-print("HYBRID SYSTEM READY")
-
 
 # --- HELPER 1: GOOGLE STT ---
 def get_google_transcript(file_path):
